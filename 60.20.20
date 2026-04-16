@@ -1,0 +1,52 @@
+python3 - << 'EOF'
+import os
+import random
+import shutil
+
+src_base = "/home/otavio/LPLCv2_crop2_selet"
+dst_base = "/home/otavio/LPLCv2_yolo"
+
+splits = {"train": 0.6, "val": 0.2, "test": 0.2}
+classes = ["front", "rear"]
+
+random.seed(42)
+
+def already_exists(dst_path):
+    return os.path.exists(dst_path)
+
+def split_and_copy(class_name):
+    src = os.path.join(src_base, class_name)
+    files = [f for f in os.listdir(src) if f.lower().endswith((".jpg", ".png", ".jpeg"))]
+
+    random.shuffle(files)
+
+    n = len(files)
+    n_train = int(n * splits["train"])
+    n_val = int(n * splits["val"])
+
+    splits_data = {
+        "train": files[:n_train],
+        "val": files[n_train:n_train + n_val],
+        "test": files[n_train + n_val:]
+    }
+
+    for split, flist in splits_data.items():
+        dst_dir = os.path.join(dst_base, split, class_name)
+        os.makedirs(dst_dir, exist_ok=True)
+
+        copied = 0
+        for f in flist:
+            src_path = os.path.join(src, f)
+            dst_path = os.path.join(dst_dir, f)
+
+            if not already_exists(dst_path):
+                shutil.copy2(src_path, dst_path)
+                copied += 1
+
+        print(f"{class_name} -> {split}: +{copied}")
+
+for c in classes:
+    split_and_copy(c)
+
+print("DONE")
+EOF
