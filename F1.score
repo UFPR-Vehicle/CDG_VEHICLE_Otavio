@@ -1,0 +1,52 @@
+nano generate_preds.py
+
+from ultralytics import YOLO
+import os
+from glob import glob
+
+model = YOLO("/home/otavio/LPLCv2_yolo/runs/front_rear_v1/weights/best.pt")
+
+test_dir = "/home/otavio/LPLCv2_yolo/test"
+out_file = "/home/otavio/LPLCv2_yolo/eval/preds.txt"
+
+classes = ["front", "rear"]
+
+with open(out_file, "w") as f:
+    for class_id, class_name in enumerate(classes):
+        class_path = os.path.join(test_dir, class_name)
+        images = glob(os.path.join(class_path, "*"))
+
+        for img in images:
+            result = model(img)[0]
+
+            probs = result.probs.data.tolist()
+            pred_class = probs.index(max(probs))
+
+            f.write(f"{class_id},{pred_class}\n")
+
+print("Predições salvas em:", out_file)
+
+
+#################
+
+nano calc_f1.py
+
+from sklearn.metrics import classification_report
+
+y_true = []
+y_pred = []
+
+with open("/home/otavio/LPLCv2_yolo/eval/preds.txt") as f:
+    for line in f:
+        t, p = map(int, line.strip().split(","))
+        y_true.append(t)
+        y_pred.append(p)
+
+print(classification_report(y_true, y_pred, target_names=["front", "rear"]))
+
+
+
+
+
+
+
