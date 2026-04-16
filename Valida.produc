@@ -1,0 +1,7 @@
+yolo classify predict \
+model=/home/otavio/LPLCv2_yolo/runs/front_rear_v1/weights/best.pt \
+source=/home/otavio/restantes \
+save=True \
+project=/home/otavio/LPLCV2_valid \
+name=prod \
+exist_ok=True
