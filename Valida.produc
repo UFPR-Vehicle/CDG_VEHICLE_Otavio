@@ -5,3 +5,12 @@ save=True \
 project=/home/otavio/LPLCV2_valid \
 name=prod \
 exist_ok=True
+
+
+#rotula 500 imagens
+yolo classify predict \
+model=/home/otavio/LPLCv2_yolo/runs/front_rear_v1/weights/best.pt \
+source=/home/otavio/prod_eval \
+save=True \
+project=/home/otavio/tmp \
+name=prelabel
