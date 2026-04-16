@@ -1,0 +1,93 @@
+# automatizando F1
+
+
+#nano eval_full.py
+
+import os
+from glob import glob
+from ultralytics import YOLO
+from sklearn.metrics import classification_report, confusion_matrix, f1_score
+import numpy as np
+import matplotlib.pyplot as plt
+import shutil
+
+
+model_path = "/home/otavio/LPLCv2_yolo/runs/front_rear_v1/weights/best.pt"
+test_dir = "/home/otavio/LPLCv2_yolo/test"
+out_dir = "/home/otavio/LPLCv2_yolo/eval_full"
+classes = ["front", "rear"]
+
+os.makedirs(out_dir, exist_ok=True)
+os.makedirs(os.path.join(out_dir, "errors"), exist_ok=True)
+
+model = YOLO(model_path)
+
+y_true = []
+y_pred = []
+
+for class_id, class_name in enumerate(classes):
+    class_path = os.path.join(test_dir, class_name)
+    images = glob(os.path.join(class_path, "*"))
+
+    for img in images:
+        result = model(img, verbose=False)[0]
+
+        probs = result.probs.data.tolist()
+        pred_class = probs.index(max(probs))
+
+        y_true.append(class_id)
+        y_pred.append(pred_class)
+
+        # ===== SALVA ERROS =====
+        if pred_class != class_id:
+            dst = os.path.join(out_dir, "errors", os.path.basename(img))
+            shutil.copy2(img, dst)
+
+print("Total:", len(y_true))
+
+report = classification_report(y_true, y_pred, target_names=classes, output_dict=True)
+
+print("\n=== CLASSIFICATION REPORT ===\n")
+print(classification_report(y_true, y_pred, target_names=classes))
+
+
+f1s = [report[c]["f1-score"] for c in classes]
+
+plt.figure()
+plt.bar(classes, f1s)
+plt.title("F1 Score por Classe")
+plt.ylabel("F1")
+plt.savefig(os.path.join(out_dir, "f1_scores.png"))
+
+
+cm = confusion_matrix(y_true, y_pred)
+
+plt.figure()
+plt.imshow(cm)
+plt.title("Confusion Matrix")
+plt.xlabel("Predicted")
+plt.ylabel("True")
+plt.xticks([0,1], classes)
+plt.yticks([0,1], classes)
+
+for i in range(len(classes)):
+    for j in range(len(classes)):
+        plt.text(j, i, cm[i, j], ha="center", va="center")
+
+plt.colorbar()
+plt.savefig(os.path.join(out_dir, "confusion_matrix.png"))
+
+
+with open(os.path.join(out_dir, "dashboard.txt"), "w") as f:
+    f.write("=== METRICS ===\n\n")
+    f.write(classification_report(y_true, y_pred, target_names=classes))
+
+print("\nArquivos salvos em:", out_dir)
+
+
+
+
+
+
+
+
