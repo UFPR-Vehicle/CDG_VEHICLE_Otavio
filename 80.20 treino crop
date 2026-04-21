@@ -1,0 +1,50 @@
+python3 - << 'EOF'
+import os, shutil, random, cv2
+
+src = "/home/otavio/LPLCv2_crop2_selet.nova.temp"
+dst = "/home/otavio/LPLCv2_lambanca.dataset"
+
+classes = ["front","rear","other_front","other_rear","other"]
+
+def augment(img):
+  
+    if random.random() < 0.5:
+        img = cv2.flip(img, 1)
+    
+  
+    if random.random() < 0.5:
+        alpha = 0.8 + random.random()*0.4
+        img = cv2.convertScaleAbs(img, alpha=alpha, beta=0)
+    
+    return img
+
+for c in classes:
+    files = os.listdir(f"{src}/{c}")
+    random.shuffle(files)
+
+    split = int(len(files)*0.8)
+
+    train_files = files[:split]
+    val_files = files[split:]
+
+   
+    for f in train_files:
+        src_path = f"{src}/{c}/{f}"
+        dst_path = f"{dst}/train/{c}/{f}"
+
+        shutil.copy(src_path, dst_path)
+
+        
+        if c != "rear":
+            img = cv2.imread(src_path)
+            if img is not None:
+                aug = augment(img)
+                name = f.replace(".jpg", "_aug.jpg")
+                cv2.imwrite(f"{dst}/train/{c}/{name}", aug)
+
+   
+    for f in val_files:
+        shutil.copy(f"{src}/{c}/{f}", f"{dst}/val/{c}/{f}")
+
+print("DONE")
+EOF
