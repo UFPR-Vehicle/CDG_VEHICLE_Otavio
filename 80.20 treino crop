@@ -1,50 +1,102 @@
-python3 - << 'EOF'
-import os, shutil, random, cv2
+import os
+import shutil
+import random
+import cv2
+import uuid
 
-src = "/home/otavio/LPLCv2_crop2_selet.nova.temp"
-dst = "/home/otavio/LPLCv2_lambanca.dataset"
+SRC = "/home/otavio/LPLCv2_crop2_selet.nova.temp"
+DST = "/home/otavio/LPLCv2_lambanca.dataset"
 
-classes = ["front","rear","other_front","other_rear","other"]
+CLASSES = ["front","rear","other_front","other_rear","other"]
+
+MIN_W, MIN_H = 100, 100
 
 def augment(img):
-  
     if random.random() < 0.5:
         img = cv2.flip(img, 1)
-    
-  
+
     if random.random() < 0.5:
-        alpha = 0.8 + random.random()*0.4
-        img = cv2.convertScaleAbs(img, alpha=alpha, beta=0)
-    
+        alpha = 0.85 + random.random()*0.3
+        beta = random.randint(-10, 10)
+        img = cv2.convertScaleAbs(img, alpha=alpha, beta=beta)
+
+    if random.random() < 0.3:
+        img = cv2.GaussianBlur(img, (3,3), 0)
+
     return img
 
-for c in classes:
-    files = os.listdir(f"{src}/{c}")
-    random.shuffle(files)
+def is_valid(img):
+    if img is None:
+        return False
+    h, w = img.shape[:2]
+    return w >= MIN_W and h >= MIN_H
 
-    split = int(len(files)*0.8)
+def main():
+    for split in ["train", "val"]:
+        for c in CLASSES:
+            os.makedirs(f"{DST}/{split}/{c}", exist_ok=True)
 
-    train_files = files[:split]
-    val_files = files[split:]
+    stats = {}
 
-   
-    for f in train_files:
-        src_path = f"{src}/{c}/{f}"
-        dst_path = f"{dst}/train/{c}/{f}"
+    for c in CLASSES:
+        class_path = os.path.join(SRC, c)
 
-        shutil.copy(src_path, dst_path)
+        if not os.path.exists(class_path):
+            print(f"[WARN] {c} não existe")
+            continue
 
-        
-        if c != "rear":
+        files = [f for f in os.listdir(class_path) if f.lower().endswith(".jpg")]
+
+        if not files:
+            print(f"[WARN] {c} vazio")
+            continue
+
+        random.shuffle(files)
+
+        split_idx = int(len(files) * 0.8)
+        train_files = files[:split_idx]
+        val_files = files[split_idx:]
+
+        tr, vl = 0, 0
+
+        # TRAIN
+        for f in train_files:
+            src_path = os.path.join(class_path, f)
             img = cv2.imread(src_path)
-            if img is not None:
+
+            if not is_valid(img):
+                continue
+
+            dst_path = os.path.join(DST, "train", c, f)
+
+            shutil.copy2(src_path, dst_path)
+            tr += 1
+
+            if c != "rear":
                 aug = augment(img)
-                name = f.replace(".jpg", "_aug.jpg")
-                cv2.imwrite(f"{dst}/train/{c}/{name}", aug)
 
-   
-    for f in val_files:
-        shutil.copy(f"{src}/{c}/{f}", f"{dst}/val/{c}/{f}")
+                if is_valid(aug):
+                    new_name = f"{os.path.splitext(f)[0]}_{uuid.uuid4().hex[:8]}.jpg"
+                    cv2.imwrite(os.path.join(DST, "train", c, new_name), aug)
+                    tr += 1
 
-print("DONE")
-EOF
+        # VAL
+        for f in val_files:
+            src_path = os.path.join(class_path, f)
+            img = cv2.imread(src_path)
+
+            if not is_valid(img):
+                continue
+
+            dst_path = os.path.join(DST, "val", c, f)
+            shutil.copy2(src_path, dst_path)
+            vl += 1
+
+        stats[c] = (tr, vl)
+
+    print("\n===== RESUMO =====")
+    for c in stats:
+        print(f"{c}: train={stats[c][0]} | val={stats[c][1]}")
+
+if __name__ == "__main__":
+    main()
