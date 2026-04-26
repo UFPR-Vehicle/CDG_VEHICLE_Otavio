@@ -1,0 +1,56 @@
+#preparar_dataset_40_20_40.py
+
+from pathlib import Path
+import shutil
+import random
+
+print("🔄 Criando dataset com split 40% Train / 20% Val / 40% Test...")
+
+origem_dia = Path("/home/otavio/LPLCv2.auto-labeled-v2/dia")
+origem_noite = Path("/home/otavio/LPLCv2.auto-labeled-v2/noite")
+
+destino = Path("/home/otavio/LPLCv2_final_dataset_40-20-40")
+
+# Criar pastas
+for split in ["train", "val", "test"]:
+    (destino / split / "dia").mkdir(parents=True, exist_ok=True)
+    (destino / split / "noite").mkdir(parents=True, exist_ok=True)
+
+# Listar imagens
+imagens_dia = list(origem_dia.glob("*.[jJ][pP][gG]*")) + list(origem_dia.glob("*.[pP][nN][gG]"))
+imagens_noite = list(origem_noite.glob("*.[jJ][pP][gG]*")) + list(origem_noite.glob("*.[pP][nN][gG]"))
+
+print(f"Total Dia:   {len(imagens_dia):,}")
+print(f"Total Noite: {len(imagens_noite):,}")
+
+random.seed(42)
+random.shuffle(imagens_dia)
+random.shuffle(imagens_noite)
+
+n_dia = len(imagens_dia)
+n_noite = len(imagens_noite)
+
+# 40% train, 20% val, 40% test
+train_dia = imagens_dia[:int(n_dia * 0.40)]
+val_dia   = imagens_dia[int(n_dia * 0.40):int(n_dia * 0.60)]
+test_dia  = imagens_dia[int(n_dia * 0.60):]
+
+train_noite = imagens_noite[:int(n_noite * 0.40)]
+val_noite   = imagens_noite[int(n_noite * 0.40):int(n_noite * 0.60)]
+test_noite  = imagens_noite[int(n_noite * 0.60):]
+
+# Copiar
+print("Copiando imagens...")
+
+for img in train_dia:   shutil.copy2(img, destino / "train/dia"   / img.name)
+for img in val_dia:     shutil.copy2(img, destino / "val/dia"     / img.name)
+for img in test_dia:    shutil.copy2(img, destino / "test/dia"    / img.name)
+
+for img in train_noite: shutil.copy2(img, destino / "train/noite" / img.name)
+for img in val_noite:   shutil.copy2(img, destino / "val/noite"   / img.name)
+for img in test_noite:  shutil.copy2(img, destino / "test/noite"  / img.name)
+
+print("\n✅ Dataset 40-20-40 criado com sucesso!")
+print(f"Train → Dia: {len(train_dia):,} | Val → Dia: {len(val_dia):,} | Test → Dia: {len(test_dia):,}")
+print(f"Train → Noite: {len(train_noite):,} | Val → Noite: {len(val_noite):,} | Test → Noite: {len(test_noite):,}")
+print(f"\nCaminho: /home/otavio/LPLCv2_final_dataset_40-20-40")
