@@ -1,0 +1,57 @@
+#python3 separar_sergio3.py
+from ultralytics import YOLO
+from pathlib import Path
+import shutil
+from tqdm import tqdm
+import torch
+
+print(" Separando imagens brutas - Versão Sergio3")
+
+
+MODEL_PATH = "/home/otavio/runs/classify/LPLCv2_final_40_20_40/weights/best.pt"
+
+ORIGEM = Path("/home/otavio/LPLCv2_completa.crop")
+DESTINO_BASE = Path("/home/otavio/LPLCv2.noite.dia/LPLCv2.noitedia.final.sergio3")
+
+DESTINO_DIA = DESTINO_BASE / "dia"
+DESTINO_NOITE = DESTINO_BASE / "noite"
+
+DESTINO_DIA.mkdir(parents=True, exist_ok=True)
+DESTINO_NOITE.mkdir(parents=True, exist_ok=True)
+
+model = YOLO(MODEL_PATH)
+device = 0 if torch.cuda.is_available() else "cpu"
+print(f"✅ Modelo carregado | Usando: {'GPU' if device == 0 else 'CPU'}")
+
+print("🔍 Buscando as 42k imagens cropadas brutas...")
+imagens = []
+for ext in ["*.jpg", "*.jpeg", "*.png", "*.JPG", "*.JPEG", "*.PNG"]:
+    imagens.extend(ORIGEM.glob(ext))
+
+print(f"Total de imagens encontradas: {len(imagens):,}")
+
+batch_size = 80
+
+print("🚀 Iniciando separação final...\n")
+
+for i in tqdm(range(0, len(imagens), batch_size), desc="Classificando"):
+    batch = imagens[i:i + batch_size]
+    
+    results = model(batch, imgsz=224, device=device, verbose=False)
+    
+    for result, img_path in zip(results, batch):
+        probs = result.probs.data
+        classe_idx = probs.argmax().item()
+        classe_nome = result.names[classe_idx].lower()
+        
+        destino = DESTINO_DIA if classe_nome == "dia" else DESTINO_NOITE
+        
+        try:
+            shutil.copy2(str(img_path), destino / img_path.name)
+        except Exception as e:
+            print(f"Erro ao copiar {img_path.name}: {e}")
+
+print("\n SEPARAÇÃO SERGIO3 CONCLUÍDA!")
+print(f"Imagens em 'dia':   {len(list(DESTINO_DIA.glob('*.*'))):,}")
+print(f"Imagens em 'noite': {len(list(DESTINO_NOITE.glob('*.*'))):,}")
+print(f"\n✅ Resultado salvo em: {DESTINO_BASE}")
