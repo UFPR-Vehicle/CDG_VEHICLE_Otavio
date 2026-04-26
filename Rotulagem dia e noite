@@ -1,0 +1,51 @@
+from ultralytics import YOLO
+from pathlib import Path
+import shutil
+from tqdm import tqdm
+import torch
+
+print("🚀 Rotulando com o modelo de ontem (99.3% acurácia)...")
+
+MODEL_PATH = "/home/otavio/runs/classify/LPLC_dia_noite/weights/best.pt"
+
+ORIGEM = Path("/home/otavio/LPLCv2_completa.crop")
+DESTINO_BASE = Path("/home/otavio/LPLCv2.auto-labeled-v2")
+
+DESTINO_DIA = DESTINO_BASE / "dia"
+DESTINO_NOITE = DESTINO_BASE / "noite"
+
+DESTINO_DIA.mkdir(parents=True, exist_ok=True)
+DESTINO_NOITE.mkdir(parents=True, exist_ok=True)
+
+model = YOLO(MODEL_PATH)
+device = 0 if torch.cuda.is_available() else "cpu"
+print(f"Usando dispositivo: {'GPU' if device == 0 else 'CPU'}")
+
+
+imagens = []
+for ext in ["*.jpg", "*.jpeg", "*.png", "*.JPG", "*.JPEG", "*.PNG"]:
+    imagens.extend(ORIGEM.glob(ext))
+
+print(f"Total de imagens para rotular: {len(imagens):,}")
+
+batch_size = 64
+
+for i in tqdm(range(0, len(imagens), batch_size), desc="Classificando"):
+    batch = imagens[i:i + batch_size]
+    
+    results = model(batch, imgsz=224, device=device, verbose=False)
+    
+    for result, img_path in zip(results, batch):
+        probs = result.probs.data
+        classe_idx = probs.argmax().item()
+        classe = result.names[classe_idx].lower()
+        
+        destino = DESTINO_DIA if classe == "dia" else DESTINO_NOITE
+        
+      
+        shutil.copy2(img_path, destino / img_path.name)
+
+print("\n Rotulagem com modelo antigo concluída!")
+print(f"Imagens em DIA:   {len(list(DESTINO_DIA.glob('*.*'))):,}")
+print(f"Imagens em NOITE: {len(list(DESTINO_NOITE.glob('*.*'))):,}")
+print(f"\nPasta final: {DESTINO_BASE}")
